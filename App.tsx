@@ -44,7 +44,7 @@ export default function App() {
     setProgress({ current: 0, total: files.length });
 
     try {
-      // Procesar archivos en paralelo con límite de 5 concurrentes para evitar rate limiting
+      // Procesar archivos en paralelo con límite de 5 concurrentes y delay de 1s (60 RPM)
       const results = await processWithConcurrency(
         files,
         async (file: File) => {
@@ -65,6 +65,7 @@ export default function App() {
           }
         },
         5, // Límite de concurrencia: 5 archivos simultáneos
+        1000, // Delay de 1 segundo entre solicitudes para cumplir con 60 RPM
         (completed, total, result) => {
           // Actualizar progreso y resultados en tiempo real
           setProgress({ current: completed, total });
