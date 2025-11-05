@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import type { ExtractedInvoiceData } from './types';
 import { extractDataFromImage } from './services/geminiService';
+import { processWithConcurrency } from './utils/concurrency';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import FileList from './components/FileList';
@@ -42,30 +43,43 @@ export default function App() {
     setExtractedData([]);
     setProgress({ current: 0, total: files.length });
 
-    const results: ExtractedInvoiceData[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setProgress({ current: i + 1, total: files.length });
-      try {
-        const data = await extractDataFromImage(file);
-        const resultWithFile = { ...data, archivo: file.name };
-        results.push(resultWithFile);
-        setExtractedData([...results]);
-      } catch (error) {
-        console.error('Error processing image:', error);
-        results.push({
-          numeroFactura: "Error",
-          fecha: "N/D",
-          proveedor: "Error al procesar",
-          concepto: "N/D",
-          importe: "0",
-          categoria: "N/D",
-          archivo: file.name
-        });
-        setExtractedData([...results]);
-      }
-      // Small delay between requests to avoid potential rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      // Procesar archivos en paralelo con límite de 3 concurrentes para evitar rate limiting
+      const results = await processWithConcurrency(
+        files,
+        async (file: File) => {
+          try {
+            const data = await extractDataFromImage(file);
+            return { ...data, archivo: file.name };
+          } catch (error) {
+            console.error('Error processing image:', error);
+            return {
+              numeroFactura: "Error",
+              fecha: "N/D",
+              proveedor: "Error al procesar",
+              concepto: "N/D",
+              importe: "0",
+              categoria: "N/D",
+              archivo: file.name
+            };
+          }
+        },
+        3, // Límite de concurrencia: 3 archivos simultáneos
+        (completed, total, result) => {
+          // Actualizar progreso y resultados en tiempo real
+          setProgress({ current: completed, total });
+          setExtractedData(prev => {
+            const newData = [...prev];
+            newData.push(result);
+            return newData;
+          });
+        }
+      );
+
+      // Asegurar que todos los resultados estén en el estado final
+      setExtractedData(results);
+    } catch (error) {
+      console.error('Error during batch processing:', error);
     }
 
     setIsProcessing(false);
