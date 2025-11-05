@@ -1,0 +1,5 @@
+{
+  "name": "Extractor de Facturas IA",
+  "description": "Una aplicación web para extraer datos de imágenes de facturas utilizando IA y exportarlos a Excel. Sube tus facturas en formato de imagen (PNG, JPG) y la aplicación extraerá automáticamente información clave como el número de factura, fecha, proveedor, concepto e importe.",
+  "requestFramePermissions": []
+}
